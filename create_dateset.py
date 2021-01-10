@@ -33,7 +33,6 @@ def rle2mask(mask_rle, shape):
     mask_rle: run-length as string formated (start length)
     shape: (width,height) of array to return 
     Returns numpy array, 1 - mask, 0 - background
-
     '''
     s = mask_rle.split()
     starts, lengths = [np.asarray(x, dtype=int) for x in (s[0:][::2], s[1:][::2])]
@@ -45,10 +44,22 @@ def rle2mask(mask_rle, shape):
     return img.reshape(shape).T
 
 
-def get_smaller_imgs(img_id, img, img_mask, small_img_width=224, small_img_height=224, stride=100, prob_rand_img=0.05, prob_blur_img=0.3):
-  random_rotate = [Image.ROTATE_90, Image.ROTATE_180, Image.ROTATE_270]
+def change_brightness(img_arr, min_val=0.8, max_val=1.3):
+  """
+    Changes the brightness of image.
+  """
+  value = random.uniform(min_val, max_val)
+  hsv = cv2.cvtColor(img_arr, cv2.COLOR_BGR2HSV)
+  hsv = np.array(hsv, dtype=np.float64)
+  hsv[:,:,1] = hsv[:,:,1]*value
+  hsv[:,:,1][hsv[:,:,1]>255] = 255
+  hsv[:,:,2] = hsv[:,:,2]*value
+  hsv[:,:,2][hsv[:,:,2]>255] = 255
+  hsv = np.array(hsv, dtype=np.uint8)
+  img_arr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+  return img_arr
 
-
+def get_smaller_imgs(img_id, img, img_mask, small_img_width=224, small_img_height=224, stride=100, prob_rand_img=0.08, prob_blur_img=0.3):
   imgheight, imgwidth, imgchannels = img.shape
 
   curr_h = 0
@@ -56,64 +67,73 @@ def get_smaller_imgs(img_id, img, img_mask, small_img_width=224, small_img_heigh
   while curr_h + small_img_height <= imgheight:
     curr_w = 0
     while curr_w + small_img_width <= imgwidth:
-      smallimg = img[curr_h:curr_h+small_img_height, curr_w:curr_w+small_img_width, :]
-      smallimg_mask = img_mask[curr_h:curr_h+small_img_height, curr_w:curr_w+small_img_width]
+      smallimg_arr = img[curr_h:curr_h+small_img_height, curr_w:curr_w+small_img_width, :]
+      smallimg_mask_arr = img_mask[curr_h:curr_h+small_img_height, curr_w:curr_w+small_img_width]
 
       num = random.random()
 
       if num <= prob_rand_img: #adds random image of kidney without glomeruli
-        img_mean = np.mean(smallimg)
+        img_mean = np.mean(smallimg_arr)
 
         if img_mean < 185.0 and img_mean > 25.0: #checks for completes white and black images
 
-          smallimg = Image.fromarray(smallimg)
-          smallimg_mask = Image.fromarray(smallimg_mask)
-          smallimg.save(f"training_data/images/{img_id}_{curr_h}x{curr_w}_{stride}.jpg")
-          smallimg_mask.save(f"training_data/masks/{img_id}_{curr_h}x{curr_w}_{stride}.jpg")
+          cv2.imwrite("training_data/images/{}_{}x{}_{}.jpg".format(img_id, curr_h, curr_w, stride), smallimg_arr)
+          cv2.imwrite("training_data/masks/{}_{}x{}_{}.jpg".format(img_id, curr_h, curr_w, stride), smallimg_mask_arr)
           small_img_id += 1
       else:
-        img_mean = np.mean(smallimg_mask)
+        img_mean = np.mean(smallimg_mask_arr)
 
         if img_mean >= 0.1: #checks for images with glomeruli
 
           #img name format img_id,curr_h,curr_w,stride
-          smallimg = Image.fromarray(smallimg)
-          smallimg_mask = Image.fromarray(smallimg_mask)
 
-          smallimg.save(f"training_data/images/{img_id}_{curr_h}x{curr_w}_{stride}.jpg")
-          smallimg_mask.save(f"training_data/masks/{img_id}_{curr_h}x{curr_w}_{stride}.jpg")
+          cv2.imwrite("training_data/images/{}_{}x{}_{}.jpg".format(img_id, curr_h, curr_w, stride), smallimg_arr)
+          cv2.imwrite("training_data/masks/{}_{}x{}_{}.jpg".format(img_id, curr_h, curr_w, stride), smallimg_mask_arr)
 
-          #image augmentation
+          #IMAGE AUGMENTATION
 
-          smallimg = ImageOps.mirror(smallimg)
-          smallimg_mask = ImageOps.mirror(smallimg_mask)
+          #image augment #1
 
-          smallimg.save(f"training_data/images/{img_id}_{curr_h}x{curr_w}_{stride}_aug1.jpg")
-          smallimg_mask.save(f"training_data/masks/{img_id}_{curr_h}x{curr_w}_{stride}_aug1.jpg")
+          smallimg_arr = cv2.flip(smallimg_arr, 1)
+          smallimg_mask_arr = cv2.flip(smallimg_mask_arr, 1)
+
+          cv2.imwrite("training_data/images/{}_{}x{}_{}_aug1.jpg".format(img_id, curr_h, curr_w, stride), smallimg_arr)
+          cv2.imwrite("training_data/masks/{}_{}x{}_{}_aug1.jpg".format(img_id, curr_h, curr_w, stride), smallimg_mask_arr)
+
+
+          #image augment #2
 
           prob = random.random()
 
-          if prob < prob_blur_img:
-            smallimg = smallimg.filter(ImageFilter.BLUR)
-            smallimg = ImageOps.flip(smallimg)
-            smallimg_mask = ImageOps.flip(smallimg_mask)
+          if prob < prob_blur_img: # add blur to the image with certain probability
+            smallimg_arr_2 = cv2.blur(smallimg_arr, (2,2))
+            smallimg_arr_2 = cv2.flip(smallimg_arr_2, 0)
+            smallimg_mask_arr_2 = cv2.flip(smallimg_mask_arr, 0)
           else:
-            smallimg = ImageOps.flip(smallimg)
-            smallimg_mask = ImageOps.flip(smallimg_mask)
+            smallimg_arr_2 = cv2.flip(smallimg_arr, 0)
+            smallimg_mask_arr_2 = cv2.flip(smallimg_mask_arr, 0)
 
-          smallimg.save(f"training_data/images/{img_id}_{curr_h}x{curr_w}_{stride}_aug2.jpg")
-          smallimg_mask.save(f"training_data/masks/{img_id}_{curr_h}x{curr_w}_{stride}_aug2.jpg")
+          cv2.imwrite("training_data/images/{}_{}x{}_{}_aug2.jpg".format(img_id, curr_h, curr_w, stride), smallimg_arr_2)
+          cv2.imwrite("training_data/masks/{}_{}x{}_{}_aug2.jpg".format(img_id, curr_h, curr_w, stride), smallimg_mask_arr_2)
 
-          small_img_id += 3
+          #image augment #3
+
+          smallimg_arr = change_brightness(smallimg_arr)
+
+          cv2.imwrite("training_data/images/{}_{}x{}_{}_aug3.jpg".format(img_id, curr_h, curr_w, stride), smallimg_arr)
+          cv2.imwrite("training_data/masks/{}_{}x{}_{}_aug3.jpg".format(img_id, curr_h, curr_w, stride), smallimg_mask_arr)
+
+          small_img_id += 4
 
       curr_w += stride
     curr_h += stride
-  print(f"Total {small_img_id} images were written.")
+  print("Total {} images were written.".format(small_img_id))
 
+
+#### creates dataset ####
 
 os.system(f"mkdir training_data/images")
 os.system(f"mkdir training_data/masks")
-
 
 for i in range(train_df.shape[0]):
   img_id = train_df.iloc[i, 0]

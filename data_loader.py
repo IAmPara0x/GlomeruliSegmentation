@@ -18,13 +18,6 @@ class Data():
 
     img_mask = cv2.imread(f"{self.img_dir}/masks/{img_name}", cv2.IMREAD_GRAYSCALE)
     
-    if img_mask is None and x_img is None:
-      print("img_mask and x_img is none")
-    elif x_img is None:
-      print("x_img is none")
-    elif img_mask is None:
-      print(img_name)
-      print("img_mask is None")
-    
     return x_img, img_mask
+
 
