@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utlis.tensorboard import SummaryWriter
 
 
 class ConvBlock(nn.Module):
@@ -32,6 +33,7 @@ class ConvBlock(nn.Module):
     self.relu = nn.ReLU()
     self.layernorm = nn.LayerNorm(self.out_num_features, self.output_dim, self.output_dim)
     self.maxpool = nn.MaxPool2d(2)
+    self.dropout = nn.Dropout(0.2)
 
   def forward(self, imgs, impl_residual_conn=True):
     
@@ -46,6 +48,7 @@ class ConvBlock(nn.Module):
       imgs += x
     imgs = self.relu(imgs)
     imgs = self.maxpool(imgs)
+    imgs = self.dropout(imgs)
     return imgs
 
   @property
@@ -96,23 +99,27 @@ class DetectionModel(nn.Module):
     self.relu = nn.ReLU()
 
     self.ffn = nn.Sequential(
-                nn.Linear(input_dim*input_dim*in_num_features, 4096), 
-                nn.ReLU(),
-                nn.Linear(4096, 4096), 
-                nn.ReLU(),
-                nn.Linear(4096, 1000),          
-                nn.ReLU(),
-                nn.Linear(1000, 1)
-              )
+            nn.Linear(input_dim*input_dim*in_num_features, 4096), 
+            nn.ReLU(),
+            nn.Linear(4096, 4096), 
+            nn.ReLU(),
+            nn.Linear(4096, 512),          
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(512, 1)
+          )
+
     self.batch_size = batch_size
 
   def forward(self, imgs):
 
     for layer_name in self.layers_dict.keys():
       imgs = self.layers_dict[layer_name](imgs)
-    imgs = imgs.view(self.batch_size, -1)
+    imgs_shape = imgs.shape
+    imgs = imgs.view(imgs_shape[0], -1)
     preds = self.ffn(imgs)
     return preds.squeeze()
+
 
 classification_data_iterator = DataLoader(training_classification_data, batch_size=BATCH_SIZE, num_workers=8, shuffle=True)
 classification_model = DetectionModel()
@@ -123,6 +130,8 @@ classification_loss.to(device)
 
 
 #### TRAINING MODEL STUFF #####
+writer = SummaryWriter("classification_model/")
+
 
 def train_classification_model(model, data_iterator, optimizer, loss, img_dim=IMG_DIM, batch_size=BATCH_SIZE, device=device):
   tbar = tqdm(data_iterator)
@@ -131,7 +140,7 @@ def train_classification_model(model, data_iterator, optimizer, loss, img_dim=IM
   bad_acc_imgs = []
   good_acc_imgs = []
   sigmoid = nn.Sigmoid()
-
+  epoch = 0
   for batch in tbar:
     
     imgs, labels, b_img_idx = batch
@@ -145,9 +154,9 @@ def train_classification_model(model, data_iterator, optimizer, loss, img_dim=IM
     optimizer.step()
     
     with torch.no_grad():
-        b_preds = sigmoid(preds)
+        b_preds_prob = sigmoid(preds)
     
-    b_preds = (b_preds > 0.5).float()
+    b_preds = (b_preds_prob > 0.5).float()
     num_correct = (b_preds == labels).sum() / len(b_preds) * 100
 
     if num_correct <= 65:
@@ -161,67 +170,22 @@ def train_classification_model(model, data_iterator, optimizer, loss, img_dim=IM
 
     optimizer.zero_grad()
 
-    tbar.set_description("b_loss - {:.4f}, avg_loss - {:.4f}, b_correct_preds - {:.2f}%, avg_correct_preds - {:.2f}%".format(b_loss, np.mean(avg_loss), num_correct, np.mean(avg_preds)))
+    writer.add_scalar('Train/Loss', b_loss.item(), epoch)
+    writer.add_scalar('Train/Correct Preds %', num_correct.item(), epoch)
 
-  return avg_loss, avg_preds, bad_acc_imgs, good_acc_imgs
+    if num_correct <= 65 and epoch >= 200:
+      wrong_preds_mask = (b_preds != labels)
+      wrong_preds_img_idx = torch.mask_select(b_img_idx, wrong_preds_mask)
+      wrong_preds_prob = torch.mask_select(b_preds_prob, worng_preds_mask)
+      for i, img_idx in enumerate(wrong_preds_img_idx):
+        img, label, _ = classification_training_data[img_idx]
+        img_name = f"wrong_pred_{img_idx}_{label}_{wrong_preds_prob[i]}"
+        writer.add_image(img_name, img.reshape(224, 224, 3), epoch)
 
-def test_classification_model(model, data_iterator,  loss, img_dim=IMG_DIM, batch_size=BATCH_SIZE, device=device):
-  tbar = tqdm(data_iterator)
-  avg_loss = []
-  avg_preds = []
-  sigmoid = nn.Sigmoid()
+    writer.flush()
 
-  for batch in tbar:
-    
-    imgs, labels, b_img_idx = batch
-    imgs = imgs.to(device).float()
-    labels = labels.to(device).float()
-    
-    with torch.no_grad():
-      preds = model(imgs)
-
-    b_loss = loss(preds, labels)
-
-    with torch.no_grad():
-        b_preds = sigmoid(preds)
-    
-    b_preds = (b_preds > 0.5).float()
-    num_correct = (b_preds == labels).sum() / len(b_preds) * 100
-
-    if num_correct <= 65:
-      bad_acc_imgs.append(b_img_idx)
-
-    if num_correct >= 75:
-      good_acc_imgs.append(b_img_idx)
-
-    avg_loss.append(b_loss.item())
-    avg_preds.append(num_correct.item())
+    epoch += 1
 
     tbar.set_description("b_loss - {:.4f}, avg_loss - {:.4f}, b_correct_preds - {:.2f}%, avg_correct_preds - {:.2f}%".format(b_loss, np.mean(avg_loss), num_correct, np.mean(avg_preds)))
 
   return avg_loss, avg_preds, bad_acc_imgs, good_acc_imgs
-
-bad_preds = []
-
-for batch in range(len(bad_acc_imgs)):
-  imgs, labels, b_img_idx = batch
-  imgs = imgs.to(device).float()
-  labels = labels.to(device).float()
-
-  with torch.no_grad():
-    preds = model(imgs)
-
-  b_loss = loss(preds, labels)
-
-  with torch.no_grad():
-    b_preds = sigmoid(preds)
-
-  b_preds = (b_preds > 0.5).float()
-  num_correct = (b_preds == labels).sum() / len(b_preds) * 100
-  print(num_correct)
-
-  not_corr_pred = (b_preds != labels)
-  not_corr_img_idx = torch.masked_select(b_img_idx, not_corr_pred)
-  bad_preds.append(not_corr_img_idx)
-
-

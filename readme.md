@@ -1,6 +1,5 @@
 
-#Glomeruli Detection and Semantic Segmentation (kaggle competition)
-
+# Glomeruli Detection and Semantic Segmentation (kaggle competition)
 
 ### Info
   1. The created dataset has 132K images
@@ -9,7 +8,6 @@
 
 #### Ideas
   1. can Conv3D be added to UNet
-
 
 #### Image Augmentation performend in the dataset
   1. Blurring Image with prob of (0.3)
@@ -21,4 +19,9 @@
 #### Bechmarks for Fast data preprocessing
   1. changing the brightness of image is about  (800 micro secs)
 
+
+#### CheckList for improving classification model acc
+  - [ X ] the model was overfitting coz there was to many parameters to just classify wheter an image has glomeruli or not.
+  - Current model Acc is 82% with 70% of dataset.
+  - [  ] Goal acc is 90%.
 

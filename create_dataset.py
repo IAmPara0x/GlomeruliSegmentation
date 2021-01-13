@@ -77,7 +77,7 @@ def get_smaller_imgs(img_id, img, img_mask, small_img_width=224, small_img_heigh
         img_mean = np.mean(smallimg_arr)
         img_mask_mean = np.mean(smallimg_mask_arr)
 
-        if img_mean < 185.0 and img_mean > 25.0 and img_mask_mean==0: #checks for completes white and black images
+        if img_mean < 185.0 and img_mean > 25.0 and img_mask_mean==0: #checks for completes white, black images and images that has no glomeruli
 
           cv2.imwrite("training_data/{}/images/{}_{}x{}_{}.jpg".format(type, img_id, curr_h, curr_w, stride), smallimg_arr)
           cv2.imwrite("training_data/{}/masks/{}_{}x{}_{}.jpg".format(type, img_id, curr_h, curr_w, stride), smallimg_mask_arr)
@@ -86,7 +86,7 @@ def get_smaller_imgs(img_id, img, img_mask, small_img_width=224, small_img_heigh
       else:
         img_mean = np.mean(smallimg_mask_arr)
 
-        if img_mean >= 0.1: #checks for images with glomeruli
+        if img_mean >= 0.075: #checks for images with glomeruli
 
           #img name format img_id,curr_h,curr_w,stride
 
@@ -122,8 +122,10 @@ def get_smaller_imgs(img_id, img, img_mask, small_img_width=224, small_img_heigh
 
           cv2.imwrite("training_data/{}/images/{}_{}x{}_{}_aug3.jpg".format(type, img_id, curr_h, curr_w, stride), smallimg_arr)
           cv2.imwrite("training_data/{}/masks/{}_{}x{}_{}_aug3.jpg".format(type, img_id, curr_h, curr_w, stride), smallimg_mask_arr)
+
           small_img_id += 4
           glomeruli_img += 4
+
       curr_w += stride
     curr_h += stride
   print("Total {} images were written. of which {} were non glomeruli img and {} were glomeruli img".format(small_img_id, non_glomeruli_img, glomeruli_img))
@@ -131,9 +133,11 @@ def get_smaller_imgs(img_id, img, img_mask, small_img_width=224, small_img_heigh
 os.system(f"mkdir training_data/classification")
 os.system(f"mkdir training_data/classification/images")
 os.system(f"mkdir training_data/classification/masks")
+
 os.system(f"mkdir training_data/segmentation")
 os.system(f"mkdir training_data/segmentation/images")
 os.system(f"mkdir training_data/segmentation/masks")
+
 #### creates dataset for classification and segmentation ####
 
 create_classification_data = True
@@ -153,7 +157,7 @@ for i in range(train_df.shape[0]):
   if create_classification_data:
     if i < 5:
       print("writing smaller imgs for classification")
-      get_smaller_imgs(img_id, img, img_mask, stride=100, prob_rand_img=0.45, type="classification")
+      get_smaller_imgs(img_id, img, img_mask, stride=100, prob_rand_img=0.40, type="classification")
 
   if create_segmentation_data:
     print("writing smaller imgs for segmentation")
@@ -162,3 +166,4 @@ for i in range(train_df.shape[0]):
   del img
   print("completed")
   print()
+
