@@ -1,9 +1,7 @@
 
 import collections
 import json
-import os
-import uuid
-import gc
+import os import uuid import gc
 import random
 
 import matplotlib.pyplot as plt
