@@ -1,14 +1,10 @@
 
-import collections
-import json
-import os import uuid import gc
+import os 
+import gc
 import random
 
 import matplotlib.pyplot as plt
-from PIL import Image, ImageDraw, ImageOps, ImageFilter
 import tifffile as tiff
-import seaborn as sns
-from skimage.measure import label, regionprops
 
 TRAIN_PATH = "../input/hubmap-kidney-segmentation/train"
 
@@ -162,6 +158,7 @@ for i in range(train_df.shape[0]):
     get_smaller_imgs(img_id, img, img_mask, stride=100, prob_rand_img=0.08, type="segmentation")
 
   del img
+  gc.collect()
   print("completed")
   print()
 

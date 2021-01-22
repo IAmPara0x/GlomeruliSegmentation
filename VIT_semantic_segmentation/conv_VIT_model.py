@@ -1,14 +1,16 @@
+
+#### Approx Acc of 87% ####
 BATCH_SIZE = 32
-IMG_DIM = 224
+IMG_DIM = 256
 IMG_FEATURES = 3
-EMBEDDING_DIM = 56
-ATTN_HEADS = 8
+EMBEDDING_DIM = 196
+ATTN_HEADS = 7
 DROPOUT = 0.25
-HIDDEN_DIM = 112
+HIDDEN_DIM = 128
 PATCH_SIZE = 8
 LAYERS = 1
 CUDA_LAUNCH_BLOCKING=1
-
+ATTN_OUTPUT_DIM = 16
 
 class Residual(nn.Module):
     def __init__(self, fn):
@@ -48,7 +50,7 @@ class FeedForward(nn.Module):
     super(FeedForward, self).__init__()
     self.net = nn.Sequential(
                 nn.Linear(dim, hidden_dim),
-                nn.GELU(),
+                nn.ReLU(),
                 nn.Dropout(dropout),
                 nn.Linear(hidden_dim, dim),
                 nn.Dropout(dropout)
@@ -60,7 +62,8 @@ class FeedForward(nn.Module):
 
 class Model(nn.Module):
   def __init__(self, patch_size=PATCH_SIZE, img_dim=IMG_DIM, img_features=IMG_FEATURES, layers=LAYERS,
-               embedding_dim=EMBEDDING_DIM, batch_size=BATCH_SIZE, dropout=DROPOUT, device=DEVICE):
+               embedding_dim=EMBEDDING_DIM, batch_size=BATCH_SIZE, dropout=DROPOUT,
+               attn_output_dim=ATTN_OUTPUT_DIM, device=DEVICE):
     super(Model, self).__init__()
     self.patch_size = patch_size
     self.img_features = img_features
@@ -68,12 +71,12 @@ class Model(nn.Module):
     self.img_dim = img_dim
     self.embedding_dim = embedding_dim
     self.input_dim = patch_size**2*self.img_features
-    self.output_dim = 1
+    self.attn_output_dim = attn_output_dim
     self.batch_size = batch_size
     self.device = device
 
     self.img_patch_embedding = nn.Linear(self.input_dim, self.embedding_dim)
-    self.pos_embedding = nn.Parameter(torch.randn(1, self.seq_len, self.embedding_dim))
+    self.pos_embedding = nn.Parameter(torch.randn(1, self.seq_len+1, self.embedding_dim))
     self.dropout = nn.Dropout(dropout)
 
     # attention layers
@@ -85,17 +88,35 @@ class Model(nn.Module):
         ]))
     # output layer
     self.layernorm = nn.LayerNorm(self.embedding_dim)
-    # self.mlp_head = nn.Sequential(
-    #                   nn.LayerNorm(self.embedding_dim),
-    #                   nn.Linear(self.embedding_dim, self.output_dim))
+
+    self.mlp_head = nn.Sequential(
+                      nn.LayerNorm(self.embedding_dim),
+                      nn.Linear(self.embedding_dim, self.attn_output_dim))
+
     self.output_layer = nn.Sequential(
-                        nn.ConvTranspose2d(self.seq_len, 256, 3, padding=1, stride=2, output_padding=1),
+                        nn.ConvTranspose2d(1024, 512, 3, padding=1, stride=2, output_padding=1),
                         nn.ReLU(),
-                        nn.ConvTranspose2d(256, 64, 3, padding=1, stride=2, output_padding=1),
+                        nn.Conv2d(512, 256, 3, padding=1),
                         nn.ReLU(),
-                        nn.ConvTranspose2d(64, 8, 3, padding=1, stride=2, output_padding=1),
+                        nn.ConvTranspose2d(256, 256, 3, padding=1, stride=2, output_padding=1),
                         nn.ReLU(),
-                        nn.ConvTranspose2d(8, 1, 2, stride=1)
+                        nn.Conv2d(256, 128, 3, padding=1),
+                        nn.ReLU(),
+                        nn.ConvTranspose2d(128, 128, 3, padding=1, stride=2, output_padding=1),
+                        nn.ReLU(),
+                        nn.Conv2d(128, 64, 3, padding=1),
+                        nn.ReLU(),
+                        nn.ConvTranspose2d(64, 64, 3, padding=1, stride=2, output_padding=1),
+                        nn.ReLU(),
+                        nn.Conv2d(64, 32, 3, padding=1),
+                        nn.ReLU(),
+                        nn.ConvTranspose2d(32, 32, 3, padding=1, stride=2, output_padding=1),
+                        nn.ReLU(),
+                        nn.Conv2d(32, 16, 3, padding=1),
+                        nn.ReLU(),
+                        nn.ConvTranspose2d(16, 16, 3, padding=1, stride=2, output_padding=1),
+                        nn.ReLU(),
+                        nn.Conv2d(16, 1, 1),
                       )
 
   def forward(self, x):
@@ -104,48 +125,16 @@ class Model(nn.Module):
 
     b,n,_ = x.shape
     x = self.img_patch_embedding(x) #shape (bs, pl, d)
-    x += self.pos_embedding[:, :(n)] #shape (pl, d)
+    x += self.pos_embedding[:, :(n+1)] #shape (pl, d)
     x = self.dropout(x)
     for attn, ffn in self.layers:
       x = attn(x)
       x = ffn(x)
-    x = self.layernorm(x)
+
+    x = self.mlp_head(x)
     # x output shape (bs, seq_len, embedding_dim)
-    x = rearrange(x, 'b f (h w) -> b f h w', h=int(self.embedding_dim/2)) #shape (bs, seq_len, d/2, d/2)
+    x = rearrange(x, 'b f (h w) -> b f h w', h=int(self.attn_output_dim**(0.5))) #shape (bs, seq_len, d/2, d/2)
     x = self.output_layer(x)
-    assert x.shape[-1] == 224
     return x
 
-
-#### training model ####
-def train(model, train_data_iterator, optimizer, loss, img_dim=IMG_DIM, batch_size=BATCH_SIZE, device=DEVICE):
-  tbar = tqdm(train_data_iterator)
-  avg_loss = []
-  avg_preds = []
-  avg_glomeruli_correct_preds = []
-  sigmoid = nn.Sigmoid()
-  for batch in tbar:
-    optimizer.zero_grad()
-    imgs, labels = batch
-    imgs = imgs.to(device).float()
-    labels = labels.to(device).float()
-
-    preds = model(imgs)
-    labels = labels.view(batch_size, -1)
-    preds = preds.view(batch_size, -1)
-
-    b_loss = loss(preds, labels)
-    b_loss.backward()
-    optimizer.step()
-    avg_loss.append(b_loss.cpu().item())
-
-    with torch.no_grad():
-        b_preds_prob = sigmoid(preds)
-
-    b_preds = (b_preds_prob > 0.5).float()
-    num_correct_preds = ((b_preds == labels).sum() / (img_dim*img_dim*batch_size) ) * 100
-    avg_preds.append(num_correct_preds.item())
-
-    tbar.set_description("b_loss - {:.4f}, avg_loss - {:.4f}, b_correct_preds - {:.2f}, avg_correct_preds - {:.2f}".format(
-                          b_loss, np.average(avg_loss), num_correct_preds, np.average(avg_preds)))
 

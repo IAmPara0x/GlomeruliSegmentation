@@ -20,7 +20,7 @@ class Data():
         patches[idx, :, :, :] = img[i:i+patch_size, j:j+patch_size]
         idx += 1
     return patches
-      
+
 
   def __len__(self):
     return len(self.training_imgs_names)
@@ -34,3 +34,22 @@ class Data():
     img_mask = get_image_patches(np.expand_dims(img_mask, -1), self.patch_size, 1)
     return x_img, np.squeeze(img_mask)
 
+class DataSegmentation():
+  def __init__(self, img_dir, img_height, img_width):
+    self.img_dir = img_dir
+    self.img_height = img_height
+    self.img_width = img_width
+
+    self.training_imgs_names = os.listdir(f"{img_dir}/images/")
+    random.shuffle(self.training_imgs_names)
+
+  def __len__(self):
+    return len(self.training_imgs_names)
+
+  def __getitem__(self, index):
+    img_name = self.training_imgs_names[index]
+    x_img = cv2.imread(self.img_dir+ "/images/" + img_name)
+    x_img = x_img.reshape(3, self.img_height, self.img_width)
+
+    img_mask = cv2.imread(f"{self.img_dir}/masks/{img_name}", cv2.IMREAD_GRAYSCALE)
+    return x_img, img_mask

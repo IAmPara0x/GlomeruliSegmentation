@@ -1,4 +1,4 @@
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 IMG_DIM = 224
 IMG_FEATURES = 3
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -6,8 +6,8 @@ EMBEDDING_DIM = 128
 ATTN_HEADS = 8
 DROPOUT = 0.25
 HIDDEN_DIM = 256
-PATCH_SIZE = 8
-LAYERS = 4
+PATCH_SIZE = 16
+LAYERS = 2
 CUDA_LAUNCH_BLOCKING=1
 
 class Residual(nn.Module):
@@ -142,5 +142,30 @@ def train(model, train_data_iterator, optimizer, loss, img_dim=IMG_DIM, batch_si
 
     tbar.set_description("b_loss - {:.4f}, avg_loss - {:.4f}, b_correct_preds - {:.2f}, avg_correct_preds - {:.2f}".format(
                           b_loss, np.average(avg_loss), num_correct_preds, np.average(avg_preds)))
+
+
+def check_result(idx):
+  sig = nn.Sigmoid()
+
+  img_patches, mask_patches = training_data[idx]
+  img_patches = torch.FloatTensor(img_patches).to(DEVICE).unsqueeze(0)
+  mask_patches = torch.FloatTensor(mask_patches)
+  with torch.no_grad():
+    result_mask_patches = model(img_patches)
+    result_mask_patches = sig(result_mask_patches).squeeze()
+  result_mask_patches  = (result_mask_patches > 0.5).float()
+  img_patches = rearrange(img_patches, "(nh nw) ph pw c -> (nh ph) (nw pw) c", nh=IMG_DIM//PATCH_SIZE)
+  img_patches = img_patches.cpu().numpy()
+  plt.imshow(img_patches)
+  result_mask_patches = rearrenge(result_mask_patches.unsqueeze(), "(nh nw) ph pw -> (nh ph) (nw pw)", nh=IMG_DIM//PATCH_SIZE)
+  result_mask_patches = result_mask_patches.detach().cpu().numpy()
+  mask_patches = rearrenge(mask_patches, "(nh nw) ph pw -> (nh ph) (nw pw)", nh=IMG_DIM//PATCH_SIZE)
+  mask_patches = mask_patches.numpy()
+
+  plt.imshow(result_mask_patches)
+  plt.show()
+  plt.imshow(mask_patches)
+  plt.show()
+
 
 

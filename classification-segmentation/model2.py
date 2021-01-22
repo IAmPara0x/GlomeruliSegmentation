@@ -20,7 +20,6 @@ class ConvBlock(nn.Module):
 class ConvTBlock(nn.Module):
   def __init__(self, in_features, out_features : int, kernel_size : int, padding : int, stride : int, num_convT_layer=2, convTpadding = 1, output_padding=1):
     super(ConvTBlock, self).__init__()
-    
     if num_convT_layer == 2:
         self.convTBlock1 = nn.ConvTranspose2d(in_features, out_features, kernel_size=kernel_size, padding=convTpadding,
                                             output_padding=output_padding, stride=stride)
@@ -29,7 +28,7 @@ class ConvTBlock(nn.Module):
     else:
         self.convTBlock1 = nn.ConvTranspose2d(in_features, out_features, kernel_size=kernel_size, padding=convTpadding,
                                             output_padding=output_padding, stride=stride)
-    
+
     self.num_convT_layer = num_convT_layer
     self.convBlock1 = nn.Conv2d(out_features, out_features, kernel_size=kernel_size, padding=padding)
     self.relu = nn.ReLU()

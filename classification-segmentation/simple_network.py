@@ -21,7 +21,7 @@ class DetectionModel(nn.Module):
                 nn.ReLU(),
                 nn.MaxPool2d(4)
             )
-    
+
     self.input_dim = input_dim
     self._conv_output()
     self.ffn = nn.Sequential(
