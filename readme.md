@@ -35,6 +35,20 @@
   - Model is not able to recognize Aug 3 images i.e. images that has different brightness.
 
 #### VIT Model
-  - can we add conv Nets to VIT?
-  - Instead of Dot product between Keys and queries there should be matrix multiplication
+  - can we add conv Nets to VIT? yes.
+  - Instead of Dot product between Keys and queries there should be matrix multiplication i.e. use vector attention.
+  - Added Conv to VIT for upsampling and got acc of 88.37% and loss of 0.27 with 2 epochs without Aug 3 Images.
+  - Which loss function will be the best ?
+    1. BCELossWithLogits
+    2. Focal Loss
+    3. Dice Loss
+    4. Weighted BCELossWithLogits
+ - Ideas to improve the current VIT-Conv model? -> Nothing work.
+  1. Reduce Number of Filters in Conv2d.
+  2. Add batchNorm2d.
+  3. Change the reduce embedding dim.
+  4. Added More attention layers.
+
+  ##### Issues with VIT
+  - recognising few pixels in not glomeruli image.
 

@@ -1,5 +1,6 @@
 
-#### Approx Acc of 87% ####
+#### Approx Acc of 88.5% with 2 epochs####
+
 BATCH_SIZE = 32
 IMG_DIM = 256
 IMG_FEATURES = 3
@@ -10,7 +11,8 @@ HIDDEN_DIM = 128
 PATCH_SIZE = 8
 LAYERS = 1
 CUDA_LAUNCH_BLOCKING=1
-ATTN_OUTPUT_DIM = 16
+ATTN_OUTPUT_DIM = 4
+
 
 class Residual(nn.Module):
     def __init__(self, fn):
@@ -59,14 +61,11 @@ class FeedForward(nn.Module):
   def forward(self, x):
     return self.net(x)
 
-
-class Model(nn.Module):
-  def __init__(self, patch_size=PATCH_SIZE, img_dim=IMG_DIM, img_features=IMG_FEATURES, layers=LAYERS,
+class Model(nn.Module): def __init__(self, patch_size=PATCH_SIZE, img_dim=IMG_DIM, img_features=IMG_FEATURES, layers=LAYERS,
                embedding_dim=EMBEDDING_DIM, batch_size=BATCH_SIZE, dropout=DROPOUT,
                attn_output_dim=ATTN_OUTPUT_DIM, device=DEVICE):
     super(Model, self).__init__()
-    self.patch_size = patch_size
-    self.img_features = img_features
+    self.patch_size = patch_size self.img_features = img_features
     self.seq_len = (img_features // patch_size) ** 2
     self.img_dim = img_dim
     self.embedding_dim = embedding_dim
@@ -91,11 +90,16 @@ class Model(nn.Module):
 
     self.mlp_head = nn.Sequential(
                       nn.LayerNorm(self.embedding_dim),
-                      nn.Linear(self.embedding_dim, self.attn_output_dim))
+                      nn.Linear(self.embedding_dim, self.attn_output_dim),
+#                       nn.ReLU(),
+                      )
 
     self.output_layer = nn.Sequential(
-                        nn.ConvTranspose2d(1024, 512, 3, padding=1, stride=2, output_padding=1),
+                        nn.ConvTranspose2d(1024, 756, 3, padding=1, stride=2, output_padding=1),
                         nn.ReLU(),
+                        nn.Conv2d(756, 756, 3, padding=1),
+                        nn.ReLU(),
+                        nn.ConvTranspose2d(756, 512, 3, padding=1, stride=2, output_padding=1), nn.ReLU(),
                         nn.Conv2d(512, 256, 3, padding=1),
                         nn.ReLU(),
                         nn.ConvTranspose2d(256, 256, 3, padding=1, stride=2, output_padding=1),
@@ -116,7 +120,7 @@ class Model(nn.Module):
                         nn.ReLU(),
                         nn.ConvTranspose2d(16, 16, 3, padding=1, stride=2, output_padding=1),
                         nn.ReLU(),
-                        nn.Conv2d(16, 1, 1),
+                        nn.Conv2d(16, 1, 1)
                       )
 
   def forward(self, x):
@@ -137,4 +141,44 @@ class Model(nn.Module):
     x = self.output_layer(x)
     return x
 
+#### Code for submission ####
+
+img = tiff.imread("/kaggle/input/hubmap-kidney-segmentation/test/afa5e8098.tiff")
+
+
+for i in range(0, img.shape[0] - (img.shape[0] % IMG_DIM)):
+  for j in range(1, img.shape[1] - (img.shape[1] % IMG_DIM)):
+    small_img = img[i:i+IMG_DIM, j:j+IMG_DIM, :]
+    small_img = get_image_patches(small_img)
+    small_img = torch.FloatTensor(small_img).to(DEVICE).unsqueeze(0)
+    with torch.no_grad():
+      preds = model(small_img)
+      preds = torch.sigmoid(preds).squeeze().cpu()
+      preds = (preds > 0.5).float().numpy()
+
+      print(i,j, end="\r")
+      if np.mean(preds) > 0:
+        plt.imshow(small_img)
+        plt.show()
+        plt.imshow(preds)
+        plt.show()
+        input()
+        clear_output(wait=True)
+
+
+def get_output(i,j):
+  small_img = img[i:i+IMG_DIM, j:j+IMG_DIM, :]
+  small_img = get_image_patches(small_img)
+  small_img = torch.FloatTensor(small_img).to(DEVICE).unsqueeze(0)
+  with torch.no_grad():
+    preds = model(small_img)
+    preds = torch.sigmoid(preds).squeeze().cpu()
+    preds = (preds > 0.5).float().numpy()
+
+    if np.mean(preds) > 0:
+      print(i,j)
+      plt.imshow(small_img)
+      plt.show()
+      plt.imshow(preds)
+      plt.show()
 

@@ -149,3 +149,28 @@ def train(model, train_data_iterator, optimizer, loss, img_dim=IMG_DIM, batch_si
     tbar.set_description("b_loss - {:.4f}, avg_loss - {:.4f}, b_correct_preds - {:.2f}, avg_correct_preds - {:.2f}".format(
                           b_loss, np.average(avg_loss), num_correct_preds, np.average(avg_preds)))
 
+
+#### Evaluating model ####
+
+def eval(model, data_iterator):
+  tbar = tqdm(data_iterator)
+  avg_preds = []
+  sig = nn.Sigmoid()
+
+  for batch in tbar:
+    imgs, labels = batch
+    imgs = imgs.to(DEVICE).float()
+
+    with torch.no_grad():
+      preds = model(imgs)
+      preds = sig(preds)
+      preds = preds.view(preds.shape[0], -1)
+      preds = (preds > 0.5).float()
+
+    labels = labels.view(preds.shape[0], -1)
+    glom_mask = (labels == 1)
+    corr_preds = (torch.masked_select(preds, glom_mask).sum() / labels.sum()) * 100
+    avg_preds.append(corr_preds.item())
+    tbar.set_description("avg_preds - {:.4f}, curr_preds - {:.4f}".format(np.mean(avg_preds), corr_preds))
+
+

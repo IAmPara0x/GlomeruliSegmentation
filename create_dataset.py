@@ -1,5 +1,5 @@
 
-import os 
+import os
 import gc
 import random
 
@@ -21,11 +21,11 @@ def mask2rle(img):
   runs = np.where(pixels[1:] != pixels[:-1])[0] + 1
   runs[1::2] -= runs[::2]
   return ' '.join(str(x) for x in runs)
- 
+
 def rle2mask(mask_rle, shape):
   '''
   mask_rle: run-length as string formated (start length)
-  shape: (width,height) of array to return 
+  shape: (width,height) of array to return
   Returns numpy array, 1 - mask, 0 - background
   '''
   s = mask_rle.split()
@@ -51,8 +51,10 @@ def change_brightness(img_arr, min_val=0.8, max_val=1.3):
   return img_arr
 
 
-
 def get_smaller_imgs(img_id, img, img_mask, small_img_width=224, small_img_height=224, stride=100, prob_rand_img=0.08, prob_blur_img=0.3, type="classification"):
+  """
+  Creates Training data.
+  """
   imgheight, imgwidth, imgchannels = img.shape
 
   curr_h = 0
@@ -161,4 +163,16 @@ for i in range(train_df.shape[0]):
   gc.collect()
   print("completed")
   print()
+
+
+#creates test dataset
+def create_test_data(img_id, img, img_mask, small_img_width=IMG_DIM, small_img_height=IMG_DIM):
+  os.system("mkdir test_data/images")
+  idx = 0
+  for i in range(0, img.shape[0], small_img_height):
+    for j in range(0, img.shape[1], small_img_width):
+      small_img = img[i:i+small_img_height, j:j+small_img_width, :]
+      small_img_mask = img_mask[i:i+small_img_height, j:j+small_img_width]
+      cv2.imwrite(f"test_data/images/{idx}.jpg", small_img)
+      cv2.imwrite(f"test_data/masks/{idx}.jpg", small_img_mask)
 
