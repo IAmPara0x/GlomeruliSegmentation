@@ -169,6 +169,30 @@ for i in range(0, img.shape[0] - (img.shape[0] % IMG_DIM)):
 def get_output(i,j):
   small_img = img[i:i+IMG_DIM, j:j+IMG_DIM, :]
   small_img = get_image_patches(small_img)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   small_img = torch.FloatTensor(small_img).to(DEVICE).unsqueeze(0)
   with torch.no_grad():
     preds = model(small_img)
