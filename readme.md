@@ -58,4 +58,6 @@
   - recognising few pixels in not glomeruli image.
 
 #### Multi Guided Conv Attention
-  - 
+  - Make use of Anatomical Segmentation given in the dataset
+  - Model overfits after 2 epochs best prediction score 79% +- 1
+  

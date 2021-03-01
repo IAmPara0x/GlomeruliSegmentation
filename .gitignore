@@ -4,3 +4,4 @@
 random_stuff.py
 .ipynb_checkpoints/
 *.tiff
+weights/

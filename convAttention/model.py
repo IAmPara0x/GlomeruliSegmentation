@@ -54,6 +54,8 @@ class semanticModule(nn.Module):
     dec1 = self.dec1(F.upsample(dec2, enc1.size()[2:], mode='bilinear'))
 
     return enc2.view(-1), dec1
+
+
 class PAM_Module(nn.Module):
   def __init__(self, in_dim):
     super(PAM_Module, self).__init__()
@@ -64,6 +66,7 @@ class PAM_Module(nn.Module):
     self.value_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
     self.gamma = nn.Parameter(torch.zeros(1))
     self.softmax = nn.Softmax(dim=-1)
+
   def forward(self, x):
     m_batchsize, C, height, width = x.size()
     proj_query = self.query_conv(x).view(m_batchsize, -1, width*height).permute(0, 2, 1)
@@ -114,13 +117,14 @@ class PAM_CAM_Layer(nn.Module):
         nn.BatchNorm2d(in_ch),
         nn.PReLU(),
         PAM_Module(in_ch) if use_pam else CAM_Module(in_ch),
-  nn.Conv2d(in_ch, in_ch, kernel_size=3, padding=1),
+        nn.Conv2d(in_ch, in_ch, kernel_size=3, padding=1),
         nn.BatchNorm2d(in_ch),
         nn.PReLU()
     )
 
   def forward(self, x):
     return self.attn(x)
+
 
 class MultiConv(nn.Module):
   def __init__(self, in_ch, out_ch, attn = True):
@@ -366,3 +370,5 @@ def runTraining(data, device=DEVICE):
 
           tbar.set_description("b_loss - {:.4f}, avg_loss - {:.4f}, b_correct_preds - {:.2f}, avg_correct_preds - {:.2f}".format(
                                 lossG, np.average(avg_loss), corr_preds, np.average(avg_corr_preds)))
+
+

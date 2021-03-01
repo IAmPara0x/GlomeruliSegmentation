@@ -148,6 +148,7 @@ def train(model, train_data_iterator, optimizer, loss, img_dim=IMG_DIM, batch_si
 
     tbar.set_description("b_loss - {:.4f}, avg_loss - {:.4f}, b_correct_preds - {:.2f}, avg_correct_preds - {:.2f}".format(
                           b_loss, np.average(avg_loss), num_correct_preds, np.average(avg_preds)))
+  return avg_loss, avg_preds
 
 
 #### Evaluating model ####

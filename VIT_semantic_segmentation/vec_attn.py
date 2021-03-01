@@ -11,7 +11,6 @@ LAYERS = 1
 CUDA_LAUNCH_BLOCKING=1
 ATTN_OUTPUT_DIM = 64
 
-
 #### Impl of Vector Attention ####
 
 class Vec_attention(nn.Module):
@@ -51,3 +50,5 @@ class Vec_attention(nn.Module):
     attn_out = attn_out.sum(3) #shape -> (bs, nh, sl, d)
     attn_out = rearrange(attn_out, 'b h n d -> b n (h d)')
     return self.output_mlp(attn_out) #shape -> (bs, sl, d)
+
+

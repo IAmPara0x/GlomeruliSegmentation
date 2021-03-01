@@ -15,22 +15,22 @@ ATTN_OUTPUT_DIM = 4
 
 
 class Residual(nn.Module):
-    def __init__(self, fn):
-        super(Residual, self).__init__()
-        self.fn = fn
+  def __init__(self, fn):
+    super(Residual, self).__init__()
+    self.fn = fn
 
-    def forward(self, x):
-        return self.fn(x) + x
+  def forward(self, x):
+    return self.fn(x) + x
 
 
 class PreNorm(nn.Module):
-    def __init__(self, fn, dim=EMBEDDING_DIM):
-        super(PreNorm, self).__init__()
-        self.norm = nn.LayerNorm(dim)
-        self.fn = fn
+  def __init__(self, fn, dim=EMBEDDING_DIM):
+    super(PreNorm, self).__init__()
+    self.norm = nn.LayerNorm(dim)
+    self.fn = fn
 
-    def forward(self, x, **kwargs):
-        return self.fn(self.norm(x), **kwargs)
+  def forward(self, x, **kwargs):
+    return self.fn(self.norm(x), **kwargs)
 
 
 class Attention(nn.Module):
@@ -50,6 +50,7 @@ class Attention(nn.Module):
 class FeedForward(nn.Module):
   def __init__(self, hidden_dim=HIDDEN_DIM, dropout=DROPOUT, dim=EMBEDDING_DIM):
     super(FeedForward, self).__init__()
+
     self.net = nn.Sequential(
                 nn.Linear(dim, hidden_dim),
                 nn.ReLU(),
@@ -61,7 +62,8 @@ class FeedForward(nn.Module):
   def forward(self, x):
     return self.net(x)
 
-class Model(nn.Module): def __init__(self, patch_size=PATCH_SIZE, img_dim=IMG_DIM, img_features=IMG_FEATURES, layers=LAYERS,
+class Model(nn.Module):
+  def __init__(self, patch_size=PATCH_SIZE, img_dim=IMG_DIM, img_features=IMG_FEATURES, layers=LAYERS,
                embedding_dim=EMBEDDING_DIM, batch_size=BATCH_SIZE, dropout=DROPOUT,
                attn_output_dim=ATTN_OUTPUT_DIM, device=DEVICE):
     super(Model, self).__init__()
@@ -169,30 +171,6 @@ for i in range(0, img.shape[0] - (img.shape[0] % IMG_DIM)):
 def get_output(i,j):
   small_img = img[i:i+IMG_DIM, j:j+IMG_DIM, :]
   small_img = get_image_patches(small_img)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   small_img = torch.FloatTensor(small_img).to(DEVICE).unsqueeze(0)
   with torch.no_grad():
     preds = model(small_img)
